@@ -1,0 +1,216 @@
+import streamlit as st
+# Import centralized styles - CSS is handled by main.py
+# No CSS imports needed here as styles are centralized
+
+def show_dashboard(navigate_to=None):
+    """
+    Dashboard/Home page for II Tuitions Mock Test Generator
+    Uses centralized exam pad styling from styles/exam_pad_styles.py
+    """
+    
+    # Header Section - Using exam pad theme
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 40px;">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+            <span style="font-size: 2rem; margin-right: 10px;">🎯</span>
+            <h1 style="color: #2c3e50; font-size: 2.5rem; margin: 0;">II TUITIONS</h1>
+        </div>
+        <h2 style="color: #34495e; font-size: 1.5rem; font-style: italic; margin-bottom: 1rem;">MOCK TEST GENERATOR</h2>
+        <div class="stats-badge">📊 3,675 Curriculum-Based Tests Generated</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Instructions Section - Using centralized CSS class
+    st.markdown("""
+    <div class="instructions-box">
+        <div class="instructions-title">📋 HOW TO GET STARTED:</div>
+        <div style="color: #2c3e50; font-size: 1rem; line-height: 1.6;">
+            <strong>1.</strong> Click "Create Test" to begin your test generation<br>
+            <strong>2.</strong> Select your education board (CBSE, ICSE, IB, Cambridge IGCSE, State Board)<br>
+            <strong>3.</strong> Choose your grade level (1-12) and subject<br>
+            <strong>4.</strong> Enter the specific topic you want to focus on<br>
+            <strong>5.</strong> Configure test settings and generate your curriculum-based test!
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Main Action Button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🚀 CREATE TEST", use_container_width=True, key="dashboard_create_test"):
+            if navigate_to:
+                navigate_to('create_test')
+            else:
+                st.session_state.current_page = 'create_test'
+                st.rerun()
+    
+    # Feature Highlights - Using exam pad styling
+    st.markdown("""
+    <div class="validation-box" style="margin-top: 30px;">
+        <div class="validation-title">🎓 PLATFORM FEATURES</div>
+        <div style="color: #667eea; font-size: 1rem; line-height: 1.8; text-align: left;">
+            <strong>📚 Multiple Boards:</strong> CBSE, ICSE, IB, Cambridge IGCSE, State Board support<br>
+            <strong>🎯 Complete Coverage:</strong> All grades from 1-12 with curriculum alignment<br>
+            <strong>📝 Flexible Formats:</strong> 25 MCQs, Mixed format (15 MCQs + 8 Short), 30+ MCQs<br>
+            <strong>🤖 AI-Powered:</strong> Claude AI generates high-quality, curriculum-specific questions<br>
+            <strong>📄 PDF Export:</strong> Download separate question and answer PDFs<br>
+            <strong>🔍 Smart Validation:</strong> Topic relevance checking with intelligent suggestions
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Quick Statistics Dashboard
+    st.markdown("### 📊 Platform Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    stats_data = [
+        ("🎯", "Tests Generated", "3,675", "#667eea"),
+        ("📚", "Education Boards", "5+", "#764ba2"),
+        ("🎓", "Grade Levels", "1-12", "#f39c12"),
+        ("⚡", "Success Rate", "98.7%", "#27ae60")
+    ]
+    
+    for i, (icon, label, value, color) in enumerate(stats_data):
+        with [col1, col2, col3, col4][i]:
+            st.markdown(f"""
+            <div style="
+                background: rgba(255, 255, 255, 0.95);
+                border: 2px solid #DDD;
+                border-radius: 12px;
+                padding: 20px;
+                margin: 10px 0;
+                text-align: center;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+                border-left: 4px solid {color};
+                transition: transform 0.3s ease;
+            ">
+                <div style="font-size: 2.5rem; margin-bottom: 10px;">{icon}</div>
+                <div style="font-weight: bold; color: #2c3e50; font-size: 1.5rem; margin-bottom: 5px;">{value}</div>
+                <div style="font-size: 0.9rem; color: #666; font-weight: 500;">{label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Subject Examples - Using exam pad styling
+    st.markdown("""
+    <div class="question-box" style="margin-top: 30px;">
+        <h4 style="color: #667eea; margin-bottom: 1rem;">📖 SAMPLE TEST TOPICS BY SUBJECT</h4>
+        <div style="color: #2c3e50; line-height: 1.8;">
+            <strong>📐 Mathematics:</strong> Algebra, Geometry, Trigonometry, Calculus, Statistics, Probability<br>
+            <strong>🔬 Science:</strong> Photosynthesis, Chemical Reactions, Laws of Motion, Atomic Structure<br>
+            <strong>📚 English:</strong> Grammar Rules, Literature Analysis, Comprehension, Creative Writing<br>
+            <strong>🌍 Social Science:</strong> Ancient History, Geography, Civics, Economics, Political Science<br>
+            <strong>💻 Computer Science:</strong> Programming Basics, Data Structures, Algorithms, Web Development<br>
+            <strong>🧪 Chemistry:</strong> Organic Chemistry, Periodic Table, Chemical Bonding, Reactions<br>
+            <strong>⚡ Physics:</strong> Mechanics, Electricity, Magnetism, Waves, Modern Physics
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Review Section - Using centralized CSS classes
+    st.markdown("""
+    <div class="review-section">
+        <h2 style="text-align: center; margin-bottom: 2rem;">⭐ STUDENT & TEACHER REVIEWS</h2>
+        <p style="text-align: center; margin-bottom: 2rem; font-size: 1.1rem;">
+            See what educators and students say about our curriculum-based mock test generator
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Review Cards - Using centralized CSS
+    cols = st.columns(4)
+    review_data = [
+        ("👨‍🏫", "Teacher Review", "Professional curriculum alignment", "⭐⭐⭐⭐⭐", "124 reviews"),
+        ("👨‍👩‍👧‍👦", "Parent Review", "Excellent learning support tool", "⭐⭐⭐⭐⭐", "89 reviews"), 
+        ("🎓", "Student Review", "Helps me practice effectively", "⭐⭐⭐⭐⭐", "156 reviews"),
+        ("🏫", "School Review", "Great for test preparation", "⭐⭐⭐⭐⭐", "201 reviews")
+    ]
+    
+    for i, (icon, title, desc, stars, count) in enumerate(review_data):
+        with cols[i]:
+            st.markdown(f"""
+            <div class="review-card">
+                <div style="font-size: 2.5rem; margin-bottom: 15px;">{icon}</div>
+                <h3 style="color: white; font-size: 1.2rem; margin-bottom: 10px;">{title}</h3>
+                <p style="color: rgba(255, 255, 255, 0.9); margin-bottom: 15px; font-size: 0.95rem;">{desc}</p>
+                <div style="color: #FFD700; font-size: 1.1rem; margin-bottom: 10px;">{stars}</div>
+                <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.85rem;">{count}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # View Reviews Button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("📝 VIEW ALL REVIEWS", use_container_width=True, key="dashboard_view_reviews"):
+            st.info("🔄 Comprehensive reviews section is coming soon! This will include detailed feedback from teachers, parents, and students.")
+    
+    # Step-by-Step Guide
+    st.markdown("### 🎯 Quick Start Guide")
+    
+    steps = [
+        ("1", "Select Board", "Choose your education board (CBSE, ICSE, IB, etc.)", "🎓"),
+        ("2", "Pick Grade", "Select your current grade level (1-12)", "📚"),
+        ("3", "Choose Subject", "Pick from curriculum-aligned subjects", "📝"),
+        ("4", "Enter Topic", "Specify the exact topic or chapter", "🎯"),
+        ("5", "Generate Test", "Configure settings and create your test", "🚀")
+    ]
+    
+    for step_num, step_title, step_desc, step_icon in steps:
+        st.markdown(f"""
+        <div class="step-box">
+            <div class="step-number">{step_num}</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 1.5rem;">{step_icon}</span>
+                <div>
+                    <div class="step-title">{step_title}</div>
+                    <div style="color: #666; font-size: 0.95rem; margin-left: 20px;">{step_desc}</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Educational Boards Information
+    st.markdown("""
+    <div class="instructions-box" style="margin-top: 30px;">
+        <div class="instructions-title">🏫 SUPPORTED EDUCATION BOARDS</div>
+        <div style="color: #2c3e50; font-size: 1rem; line-height: 1.8;">
+            <strong>🇮🇳 CBSE:</strong> Central Board of Secondary Education - Indian curriculum standards<br>
+            <strong>🎓 ICSE:</strong> Indian Certificate of Secondary Education - Analytical approach<br>
+            <strong>🌍 Cambridge IGCSE:</strong> International General Certificate - Global standards<br>
+            <strong>🌟 IB:</strong> International Baccalaureate - Inquiry-based learning<br>
+            <strong>🏛️ State Board:</strong> Regional state education boards - Local curriculum focus
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Footer Information
+    st.markdown("""
+    <div style="
+        text-align: center; 
+        margin-top: 50px; 
+        padding: 25px; 
+        background: rgba(102, 126, 234, 0.1); 
+        border-radius: 15px;
+        border: 2px solid rgba(102, 126, 234, 0.2);
+    ">
+        <h4 style="color: #2c3e50; margin-bottom: 15px;">🎓 II Tuitions Mock Test Generator</h4>
+        <p style="color: #666; font-size: 1rem; margin-bottom: 10px;">
+            <strong>Powered by Claude AI</strong> • Curriculum-aligned content • Multi-board support
+        </p>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 0;">
+            📧 support@iituitions.com | 📞 +91-XXX-XXX-XXXX | 🌐 www.iituitions.com
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Alternative function names for backward compatibility and flexibility
+def show_home_page(navigate_to=None):
+    """Alternative function name for home page"""
+    show_dashboard(navigate_to)
+
+def main():
+    """Main function for standalone testing"""
+    show_dashboard()
+
+if __name__ == "__main__":
+    main()
