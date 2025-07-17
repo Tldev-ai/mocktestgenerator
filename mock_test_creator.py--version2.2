@@ -1,0 +1,897 @@
+import streamlit as st
+import json
+import requests
+import re
+from datetime import datetime
+import os
+
+# Import centralized styles - CSS is handled by main.py
+# No CSS imports needed here as styles are centralized
+
+# Configuration
+CLAUDE_API_KEY = ""
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+
+# Add these imports for PDF generation
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
+def get_board_specific_guidelines(board, grade, subject, topic):
+    """Get comprehensive guidelines for ALL boards, grades, subjects, and topics"""
+    
+    # Universal grade-level cognitive development guidelines
+    grade_development = {
+        1: "Basic recognition, simple vocabulary, concrete concepts, visual learning",
+        2: "Simple sentences, basic operations, pattern recognition, foundational skills",
+        3: "Expanded vocabulary, multi-step processes, comparison skills, basic analysis",
+        4: "Complex sentences, problem-solving, categorization, logical reasoning",
+        5: "Abstract thinking begins, detailed explanations, cause-effect relationships",
+        6: "Advanced vocabulary, multi-step problems, analytical thinking, applications",
+        7: "Complex concepts, critical thinking, detailed analysis, practical applications",
+        8: "Abstract reasoning, sophisticated vocabulary, advanced problem-solving",
+        9: "High-level analysis, complex applications, preparation for advanced study",
+        10: "Board exam preparation, advanced concepts, comprehensive understanding",
+        11: "Pre-university level, specialized knowledge, research-based learning",
+        12: "University preparation, expert-level understanding, independent analysis"
+    }
+    
+    # Board-specific educational philosophies and styles
+    board_characteristics = {
+        "CBSE": {
+            "philosophy": "Holistic development, practical application, Indian cultural context",
+            "language": "Indian English, Hindi transliterations when relevant",
+            "examples": "Indian cities, cultural references, local contexts",
+            "assessment": "Application-based, real-world problems, analytical thinking",
+            "difficulty": "Balanced approach, comprehensive coverage, skill development"
+        },
+        "ICSE": {
+            "philosophy": "Analytical thinking, detailed study, British educational system",
+            "language": "British English spellings and grammar",
+            "examples": "International contexts, analytical scenarios",
+            "assessment": "Detailed answers, analytical questions, comprehensive evaluation",
+            "difficulty": "Higher complexity, detailed explanations, thorough understanding"
+        },
+        "Cambridge IGCSE": {
+            "philosophy": "International perspective, global contexts, academic excellence",
+            "language": "International English, academic vocabulary",
+            "examples": "Global examples, international case studies, multicultural contexts",
+            "assessment": "Cambridge assessment style, structured questions, evidence-based answers",
+            "difficulty": "International standards, university preparation, rigorous evaluation"
+        },
+        "IB": {
+            "philosophy": "Inquiry-based learning, international mindedness, critical thinking",
+            "language": "Academic English, inquiry-based terminology",
+            "examples": "Global perspectives, intercultural understanding, real-world applications",
+            "assessment": "Concept-based, inquiry-driven, reflection and analysis",
+            "difficulty": "High academic rigor, conceptual understanding, independent thinking"
+        },
+        "State Board": {
+            "philosophy": "Regional relevance, state-specific curriculum, accessible education",
+            "language": "Local language influences, regional terminology",
+            "examples": "State-specific examples, local geography and culture",
+            "assessment": "State pattern questions, curriculum-aligned, practical focus",
+            "difficulty": "State standards, accessible to diverse learners, practical applications"
+        }
+    }
+    
+    # Generate comprehensive guidelines
+    def generate_guidelines(board, grade, subject, topic):
+        # Get base characteristics
+        board_info = board_characteristics.get(board, board_characteristics["CBSE"])
+        grade_level = grade_development.get(grade, f"Grade {grade} cognitive level")
+        
+        guidelines = f"""
+BOARD: {board}
+{board_info['philosophy']}
+Language: {board_info['language']}
+Examples: {board_info['examples']}
+Assessment Style: {board_info['assessment']}
+
+GRADE {grade} LEVEL:
+Cognitive Development: {grade_level}
+
+TOPIC: "{topic}"
+Focus: All questions must be specifically about "{topic}" as taught in {board} Grade {grade} {subject}
+Complexity: Match {board} Grade {grade} examination standards
+Context: Use {board_info['examples']} where appropriate
+Language: {board_info['language']} terminology and style
+"""
+        return guidelines
+    
+    return generate_guidelines(board, grade, subject, topic)
+
+# Enhanced Subject mapping with curriculum standards
+def get_subjects_by_board():
+    return {
+        "CBSE": {
+            1: ["Mathematics", "English", "Hindi", "EVS"],
+            2: ["Mathematics", "English", "Hindi", "EVS"],
+            3: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            4: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            5: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            6: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            7: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            8: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            9: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit", "Computer Science"],
+            10: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Business Studies"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Business Studies"]
+        },
+        "ICSE": {
+            1: ["Mathematics", "English", "Hindi", "EVS"],
+            2: ["Mathematics", "English", "Hindi", "EVS"],
+            3: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            4: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            5: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            6: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            7: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            8: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            9: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography", "Computer Applications"],
+            10: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography", "Computer Applications"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Commerce"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Commerce"]
+        },
+        "IB": {
+            1: ["Mathematics", "English", "Science", "Social Studies"],
+            2: ["Mathematics", "English", "Science", "Social Studies"],
+            3: ["Mathematics", "English", "Science", "Social Studies"],
+            4: ["Mathematics", "English", "Science", "Social Studies"],
+            5: ["Mathematics", "English", "Science", "Social Studies"],
+            6: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            7: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            8: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            9: ["Mathematics", "English", "Science", "Social Studies", "Arts", "Computer Science"],
+            10: ["Mathematics", "English", "Science", "Social Studies", "Arts", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Economics", "Business Management"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Economics", "Business Management"]
+        },
+        "Cambridge IGCSE": {
+            1: ["Mathematics", "English", "Science", "Social Studies"],
+            2: ["Mathematics", "English", "Science", "Social Studies"],
+            3: ["Mathematics", "English", "Science", "Social Studies"],
+            4: ["Mathematics", "English", "Science", "Social Studies"],
+            5: ["Mathematics", "English", "Science", "Social Studies"],
+            6: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            7: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            8: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            9: ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Computer Science", "Economics"],
+            10: ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Computer Science", "Economics"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"]
+        },
+        "State Board": {
+            1: ["Mathematics", "English", "Mother Tongue", "EVS"],
+            2: ["Mathematics", "English", "Mother Tongue", "EVS"],
+            3: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            4: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            5: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            6: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            7: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            8: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            9: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science", "Computer Science"],
+            10: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"]
+        }
+    }
+
+def test_claude_api():
+    """Test Claude API connection"""
+    try:
+        if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+            return False, "API key not configured"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": CLAUDE_API_KEY,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "Test"}]
+        }
+        
+        response = requests.post(CLAUDE_API_URL, headers=headers, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            return True, "API connection successful"
+        elif response.status_code == 401:
+            return False, f"API Authentication failed - check your API key"
+        elif response.status_code == 429:
+            return False, f"API rate limit exceeded - try again later"
+        else:
+            try:
+                error_detail = response.json()
+                return False, f"API Error {response.status_code}: {error_detail.get('error', {}).get('message', 'Unknown error')}"
+            except:
+                return False, f"API Error: {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+
+def verify_api_key():
+    """Verify API key with details"""
+    st.write("🔍 **API Key Verification:**")
+    
+    if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+        st.error("❌ API key not configured")
+        return False
+    
+    if not CLAUDE_API_KEY.startswith("sk-ant-api03-"):
+        st.error("❌ Invalid API key format")
+        return False
+    
+    st.success("✅ API key format is correct")
+    
+    # Test connection
+    working, message = test_claude_api()
+    if working:
+        st.success(f"✅ {message}")
+    else:
+        st.error(f"❌ {message}")
+    
+    return working
+
+def generate_questions(board, grade, subject, topic, paper_type, include_answers_on_screen):
+    """Generate board-specific, grade-specific questions using Claude AI"""
+    
+    # Determine counts based on paper type
+    if paper_type == "Paper 1 (25 MCQs)":
+        mcq_count = 25
+        short_count = 0
+    elif paper_type == "Paper 2 (23 Mixed)":
+        mcq_count = 15
+        short_count = 8
+    else:  # Paper 3 (more than 25)
+        mcq_count = 30
+        short_count = 0
+    
+    prompt = f"""Create a {board} Grade {grade} {subject} test on "{topic}".
+
+Generate {mcq_count} multiple choice questions and {short_count} short answer questions.
+
+Return ONLY valid JSON in this exact format:
+{{
+    "test_info": {{
+        "board": "{board}",
+        "grade": {grade},
+        "subject": "{subject}",
+        "topic": "{topic}",
+        "paper_type": "{paper_type}",
+        "total_questions": {mcq_count + short_count},
+        "show_answers_on_screen": {str(include_answers_on_screen).lower()}
+    }},
+    "questions": [
+        {{
+            "question_number": 1,
+            "type": "mcq",
+            "question": "Sample question about {topic}?",
+            "options": {{
+                "A": "Option A",
+                "B": "Option B", 
+                "C": "Option C",
+                "D": "Option D"
+            }},
+            "correct_answer": "A",
+            "explanation": "Brief explanation"
+        }}
+    ]
+}}
+
+CRITICAL: Return ONLY the JSON. No other text before or after."""
+
+    try:
+        if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+            st.error("❌ API key not configured")
+            return None
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": CLAUDE_API_KEY,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 4000,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        
+        response = requests.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['content'][0]['text']
+            
+            # Clean and extract JSON
+            content = content.strip()
+            
+            if '```json' in content:
+                start = content.find('```json') + 7
+                end = content.find('```', start)
+                if end != -1:
+                    content = content[start:end]
+            elif '```' in content:
+                start = content.find('```') + 3
+                end = content.find('```', start)
+                if end != -1:
+                    content = content[start:end]
+            
+            content = content.strip()
+            
+            try:
+                test_data = json.loads(content)
+                
+                # Ensure test_info has required fields
+                if 'test_info' in test_data:
+                    test_data['test_info']['show_answers_on_screen'] = include_answers_on_screen
+                    test_data['test_info']['curriculum_standard'] = f"{board} Grade {grade} {subject}"
+                
+                return test_data
+                
+            except json.JSONDecodeError as e:
+                st.error(f"❌ JSON Parse Error: {str(e)}")
+                return None
+            
+        else:
+            st.error(f"❌ API Error {response.status_code}")
+            return None
+            
+    except Exception as e:
+        st.error(f"❌ Request failed: {str(e)}")
+        return None
+
+def get_enhanced_subject_keywords():
+    """Enhanced keywords for topic validation with curriculum focus"""
+    return {
+        "Mathematics": [
+            "number", "numbers", "addition", "subtraction", "multiplication", "division", "counting",
+            "algebra", "geometry", "calculus", "arithmetic", "trigonometry", "statistics", "probability",
+            "equation", "equations", "function", "functions", "graph", "graphs", "formula", "formulas",
+            "fraction", "fractions", "decimal", "decimals", "percentage", "percentages", "ratio", "ratios", "proportion",
+            "linear", "quadratic", "polynomial", "polynomials", "derivative", "derivatives", "integral", "integrals",
+            "limit", "limits", "theorem", "theorems", "proof", "proofs", "expression", "expressions", 
+            "variable", "variables", "constant", "constants", "coefficient", "coefficients",
+            "angle", "angles", "triangle", "triangles", "circle", "circles", "square", "squares", 
+            "rectangle", "rectangles", "polygon", "polygons", "volume", "area", "perimeter",
+            "coordinate", "coordinates", "slope", "parallel", "perpendicular",
+            "matrix", "matrices", "determinant", "determinants", "vector", "vectors"
+        ],
+        "Science": [
+            "matter", "energy", "force", "motion", "gravity", "friction", "pressure", "temperature",
+            "heat", "light", "sound", "electricity", "magnetism", "wave", "waves", "radiation",
+            "physics", "velocity", "acceleration", "momentum", "power", "work", "machine", "machines",
+            "chemistry", "atom", "atoms", "molecule", "molecules", "element", "elements", "compound", "compounds",
+            "reaction", "reactions", "acid", "acids", "base", "bases", "salt", "salts", "pH",
+            "biology", "cell", "cells", "tissue", "tissues", "organ", "organs", "system", "systems",
+            "photosynthesis", "respiration", "digestion", "circulation", "reproduction", "evolution",
+            "genetics", "DNA", "RNA", "gene", "genes", "protein", "proteins", "enzyme", "enzymes"
+        ],
+        "Chemistry": [
+            "atom", "atoms", "molecule", "molecules", "element", "elements", "compound", "compounds", 
+            "reaction", "reactions", "acid", "acids", "base", "bases", "salt", "salts", "carbon", 
+            "organic", "inorganic", "periodic", "bond", "bonds", "electron", "electrons", "proton", "protons", 
+            "neutron", "neutrons", "catalyst", "catalysts", "solution", "solutions", "mixture", "mixtures", 
+            "oxidation", "reduction", "pH", "molarity", "valency", "isotope", "isotopes"
+        ],
+        "Physics": [
+            "motion", "force", "forces", "energy", "electricity", "magnetism", "light", "sound", "heat", 
+            "wave", "waves", "particle", "particles", "atom", "atoms", "quantum", "relativity", "mechanics", 
+            "thermodynamics", "optics", "acoustics", "velocity", "acceleration", "momentum", "friction", 
+            "gravity", "gravitational", "pressure", "temperature", "current", "voltage", "resistance"
+        ],
+        "Biology": [
+            "cell", "cells", "tissue", "tissues", "organ", "organs", "system", "systems", 
+            "photosynthesis", "respiration", "digestion", "circulation", "reproduction", "evolution",
+            "genetics", "DNA", "RNA", "gene", "genes", "protein", "proteins", "enzyme", "enzymes",
+            "hormone", "hormones", "plant", "plants", "animal", "animals", "bacteria", "virus", "viruses"
+        ],
+        "English": [
+            "grammar", "literature", "writing", "reading", "comprehension", "vocabulary", "poetry",
+            "prose", "novel", "novels", "story", "stories", "essay", "essays", "paragraph", "paragraphs", 
+            "sentence", "sentences", "word", "words", "letter", "letters", "phonics", "spelling"
+        ],
+        "Hindi": [
+            "व्याकरण", "साहित्य", "कविता", "गद्य", "उपन्यास", "कहानी", "निबंध", "अनुच्छेद",
+            "वाक्य", "शब्द", "अक्षर", "वर्ण", "संज्ञा", "सर्वनाम", "विशेषण", "क्रिया"
+        ],
+        "Social Science": [
+            "history", "geography", "civics", "economics", "politics", "government", "society", "culture",
+            "civilization", "civilizations", "war", "wars", "independence", "freedom", "constitution", 
+            "democracy", "republic", "monarchy", "empire", "empires", "map", "maps", "climate", "weather"
+        ],
+        "History": [
+            "ancient", "medieval", "modern", "contemporary", "war", "wars", "battle", "battles",
+            "independence", "freedom", "civilization", "civilizations", "empire", "empires",
+            "king", "kings", "queen", "queens", "ruler", "rulers", "dynasty", "dynasties"
+        ],
+        "Geography": [
+            "map", "maps", "continent", "continents", "country", "countries", "state", "states",
+            "city", "cities", "river", "rivers", "mountain", "mountains", "ocean", "oceans",
+            "climate", "weather", "population", "resources", "agriculture", "industry"
+        ],
+        "Computer Science": [
+            "programming", "algorithm", "algorithms", "data", "structure", "structures", "software", 
+            "hardware", "internet", "network", "networks", "database", "databases", "coding", 
+            "python", "java", "javascript", "html", "css", "computer", "computers"
+        ],
+        "Economics": [
+            "money", "market", "markets", "trade", "business", "profit", "loss", "demand", "supply",
+            "price", "prices", "inflation", "economy", "economic", "finance", "financial"
+        ],
+        "EVS": [
+            "environment", "environmental", "nature", "natural", "pollution", "conservation", "wildlife",
+            "forest", "forests", "water", "air", "soil", "plant", "plants", "animal", "animals"
+        ]
+    }
+
+def check_topic_relevance(topic, subject):
+    """Enhanced topic relevance checking with better curriculum matching"""
+    if not topic or not subject:
+        return True, []
+    
+    keywords_dict = get_enhanced_subject_keywords()
+    
+    # Safe string operations
+    topic_clean = str(topic).lower().strip()
+    subject_keywords = keywords_dict.get(subject, [])
+    
+    # Check for direct matches or partial matches
+    matches = False
+    matched_keywords = []
+    
+    for keyword in subject_keywords:
+        keyword_clean = str(keyword).lower()
+        # Check if keyword is in topic or topic is in keyword (both ways)
+        if keyword_clean in topic_clean or topic_clean in keyword_clean:
+            matches = True
+            matched_keywords.append(keyword)
+    
+    # Additional check for Science subject (covers Physics, Chemistry, Biology)
+    if not matches and subject == "Science":
+        for science_subject in ["Physics", "Chemistry", "Biology"]:
+            if science_subject in keywords_dict:
+                for keyword in keywords_dict[science_subject]:
+                    keyword_clean = str(keyword).lower()
+                    if keyword_clean in topic_clean or topic_clean in keyword_clean:
+                        matches = True
+                        matched_keywords.append(keyword)
+                        break
+                if matches:
+                    break
+    
+    return matches, subject_keywords
+
+def get_available_subjects(board, grade):
+    """Get available subjects for board and grade"""
+    subjects_data = get_subjects_by_board()
+    board_data = subjects_data.get(board, {})
+    return board_data.get(grade, [])
+
+def create_questions_pdf(test_data, filename="questions.pdf"):
+    """Create PDF with questions only"""
+    if not PDF_AVAILABLE:
+        st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        return None
+    
+    try:
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # II Tuition Title style
+        tuitions_title_style = ParagraphStyle(
+            'TuitionsTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=10,
+            alignment=1,  # Center
+            textColor=colors.darkblue
+        )
+        
+        test_info = test_data.get('test_info', {})
+        questions = test_data.get('questions', [])
+        
+        # II Tuition Header
+        story.append(Paragraph("🎓 II Tuition Mock Test Generated", tuitions_title_style))
+        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} Mock Test", tuitions_title_style))
+        story.append(Paragraph(f"Board: {test_info.get('board', 'N/A')} | Grade: {test_info.get('grade', 'N/A')} | Topic: {test_info.get('topic', 'N/A')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Instructions
+        story.append(Paragraph("Instructions:", styles['Heading2']))
+        story.append(Paragraph("• Read all questions carefully", styles['Normal']))
+        story.append(Paragraph("• Choose the best answer for multiple choice questions", styles['Normal']))
+        story.append(Paragraph("• Write clearly for descriptive answers", styles['Normal']))
+        story.append(Paragraph("• Manage your time effectively", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Questions
+        for i, question in enumerate(questions, 1):
+            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+            
+            if question.get('type') == 'mcq' and 'options' in question:
+                options = question['options']
+                for option_key, option_text in options.items():
+                    story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;<b>{option_key})</b> {option_text}", styles['Normal']))
+            
+            story.append(Spacer(1, 15))
+        
+        doc.build(story)
+        return filename
+        
+    except Exception as e:
+        st.error(f"Error creating PDF: {str(e)}")
+        return None
+
+def create_answers_pdf(test_data, filename="answers.pdf"):
+    """Create PDF with answers only"""
+    if not PDF_AVAILABLE:
+        st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        return None
+    
+    try:
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        test_info = test_data.get('test_info', {})
+        questions = test_data.get('questions', [])
+        
+        # Header
+        story.append(Paragraph("🎓 II Tuition Mock Test - Answer Key", styles['Heading1']))
+        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} Mock Test Answers", styles['Heading2']))
+        story.append(Spacer(1, 20))
+        
+        # Answers
+        for i, question in enumerate(questions, 1):
+            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+            
+            # Show the correct answer
+            if 'correct_answer' in question and question['correct_answer']:
+                story.append(Paragraph(f"<b>Correct Answer:</b> {question['correct_answer']}", styles['Normal']))
+            elif 'sample_answer' in question and question['sample_answer']:
+                story.append(Paragraph(f"<b>Sample Answer:</b> {question['sample_answer']}", styles['Normal']))
+            
+            # Show explanation if available
+            if 'explanation' in question and question['explanation']:
+                story.append(Paragraph(f"<b>Explanation:</b> {question['explanation']}", styles['Normal']))
+            
+            story.append(Spacer(1, 15))
+        
+        doc.build(story)
+        return filename
+        
+    except Exception as e:
+        st.error(f"Error creating PDF: {str(e)}")
+        return None
+
+def show_test_creator(navigate_to=None):
+    """
+    Test creator page content for II Tuitions Mock Test Generator
+    Uses centralized exam pad styling from styles/exam_pad_styles.py
+    All content styling comes from the centralized CSS system
+    """
+    
+    # Page Header - Using centralized styling
+    st.markdown('<h1 style="color: #2c3e50; text-align: center; font-size: 2.5rem; margin-bottom: 1rem;">🎯 Create Mock Test</h1>', unsafe_allow_html=True)
+    
+    # API Test Section
+    st.markdown("### 🔍 Claude AI Configuration Test")
+    
+    # Show API key status
+    st.write("**Current API Key Status:**")
+    if CLAUDE_API_KEY and CLAUDE_API_KEY != "REPLACE_WITH_YOUR_API_KEY":
+        key_preview = CLAUDE_API_KEY[:15] + "..." + CLAUDE_API_KEY[-8:]
+        st.success(f"✅ API Key configured: {key_preview}")
+    else:
+        st.error("❌ API Key not configured")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔍 Test Claude API Connection", key="test_api_btn"):
+            with st.spinner("Testing API connection..."):
+                working, message = test_claude_api()
+                if working:
+                    st.success(f"✅ {message}")
+                    st.balloons()
+                else:
+                    st.error(f"❌ {message}")
+                    if "401" in message:
+                        st.info("🔧 **Troubleshooting Tips:**")
+                        st.info("1. Check if your API key is correct")
+                        st.info("2. Verify you have Claude API credits remaining")
+                        st.info("3. Make sure the API key hasn't expired")
+    
+    with col2:
+        if st.button("📋 Detailed API Verification", key="verify_api_btn"):
+            verify_api_key()
+    
+    st.markdown("---")
+    
+    # Step 1: Board Selection - Using centralized CSS classes
+    st.markdown("""
+    <div class="step-box">
+        <div class="step-number">1</div>
+        <div class="step-title">SELECT EDUCATION BOARD:</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    board_options = ["Select Board", "CBSE", "ICSE", "IB", "Cambridge IGCSE", "State Board"]
+    selected_board = st.selectbox(
+        "Choose from major education boards recognized globally", 
+        board_options, 
+        index=0,
+        key="board_select"
+    )
+    
+    if selected_board != "Select Board":
+        board = selected_board
+    else:
+        board = ''
+    
+    # Step 2: Grade Selection - Using centralized CSS classes
+    st.markdown("""
+    <div class="step-box">
+        <div class="step-number">2</div>
+        <div class="step-title">SELECT GRADE LEVEL:</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if board:
+        grade_options = ["Select Grade"] + [f"Grade {i}" for i in range(1, 13)]
+        selected_grade = st.selectbox(
+            "Select your current academic grade (1-12)", 
+            grade_options, 
+            index=0,
+            key=f"grade_select_{board}"
+        )
+        
+        if selected_grade != "Select Grade":
+            try:
+                grade_text = str(selected_grade)
+                grade_num = int(grade_text.replace("Grade ", ""))
+                grade = grade_num
+            except (ValueError, AttributeError):
+                grade = 0
+        else:
+            grade = 0
+    else:
+        st.selectbox(
+            "Select your current academic grade (1-12)", 
+            ["Please select Board first"], 
+            disabled=True,
+            key="grade_disabled"
+        )
+        grade = 0
+    
+    # Step 3: Subject Selection - Using centralized CSS classes
+    st.markdown("""
+    <div class="step-box">
+        <div class="step-number">3</div>
+        <div class="step-title">SELECT SUBJECT:</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if board and grade > 0:
+        available_subjects = get_available_subjects(board, grade)
+        
+        if available_subjects:
+            subject_options = ["Select Subject"] + available_subjects
+            selected_subject = st.selectbox(
+                "Choose the subject for which you want to generate the mock test", 
+                subject_options, 
+                index=0,
+                key=f"subject_select_{board}_{grade}"
+            )
+            
+            if selected_subject != "Select Subject":
+                subject = selected_subject
+                st.success(f"✅ Selected: {subject} for {board} Grade {grade}")
+            else:
+                subject = ''
+        else:
+            st.error(f"❌ No subjects available for {board} Grade {grade}")
+            subject = ''
+    else:
+        st.selectbox(
+            "Choose the subject for which you want to generate the mock test", 
+            ["Please select Board and Grade first"], 
+            disabled=True,
+            key=f"subject_placeholder"
+        )
+        subject = ''
+    
+    # Step 4: Topic Input - Using centralized CSS classes
+    st.markdown("""
+    <div class="step-box">
+        <div class="step-number">4</div>
+        <div class="step-title">ENTER TOPIC:</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if subject:
+        topic_input = st.text_input(
+            "Specify the exact topic or chapter you want to focus on", 
+            placeholder=f"e.g., Photosynthesis, Quadratic Equations, World War II", 
+            key=f"topic_input_{subject}"
+        )
+        
+        if topic_input:
+            topic = topic_input.strip()
+        else:
+            topic = ''
+    else:
+        st.text_input(
+            "Specify the exact topic or chapter you want to focus on", 
+            placeholder="Please select a subject first", 
+            disabled=True,
+            key="topic_disabled"
+        )
+        topic = ''
+    
+    # Topic validation
+    topic_valid = True
+    
+    if topic and subject:
+        is_relevant, keywords = check_topic_relevance(topic, subject)
+        if not is_relevant:
+            topic_valid = False
+            st.error(f"⚠️ Topic '{topic}' doesn't seem to match {subject}")
+            
+            # Show suggestions
+            if keywords:
+                st.info(f"💡 Try topics related to {subject}:")
+                
+                col1, col2 = st.columns(2)
+                keywords_count = len(keywords)
+                mid_point = keywords_count // 2
+                
+                with col1:
+                    st.write("**Suggestions:**")
+                    for i in range(min(mid_point, 8)):
+                        if i < len(keywords):
+                            keyword = str(keywords[i])
+                            st.write(f"• {keyword.title()}")
+                
+                with col2:
+                    st.write("**More topics:**")
+                    start_idx = mid_point
+                    for i in range(start_idx, min(start_idx + 8, len(keywords))):
+                        if i < len(keywords):
+                            keyword = str(keywords[i])
+                            st.write(f"• {keyword.title()}")
+        else:
+            st.success(f"✅ Topic '{topic}' is valid for {subject}")
+    elif topic and not subject:
+        st.warning("⚠️ Please select a subject first to validate your topic")
+        topic_valid = False
+    
+    # Validation Summary - Using centralized CSS classes
+    st.markdown("""
+    <div class="validation-box">
+        <div class="validation-title">📋 VALIDATION SUMMARY</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    validation_results = []
+    
+    if board:
+        validation_results.append((f"✅ BOARD: {board} Selected", "success"))
+    else:
+        validation_results.append(("❌ BOARD: Please select a board", "error"))
+    
+    if grade > 0:
+        validation_results.append((f"✅ GRADE: Grade {grade} Selected", "success"))
+    else:
+        validation_results.append(("❌ GRADE: Please select a grade", "error"))
+    
+    if subject:
+        validation_results.append((f"✅ SUBJECT: {subject} Selected", "success"))
+    else:
+        validation_results.append(("❌ SUBJECT: Please select a subject", "error"))
+    
+    if topic and topic_valid:
+        validation_results.append((f"✅ TOPIC: '{topic}' is Valid", "success"))
+    elif topic and not topic_valid:
+        validation_results.append(("❌ TOPIC: Topic doesn't match subject", "error"))
+    else:
+        validation_results.append(("❌ TOPIC: Please enter a topic", "error"))
+    
+    # Display validation results
+    for message, msg_type in validation_results:
+        if msg_type == "success":
+            st.success(message)
+        else:
+            st.error(message)
+    
+    # Check if all validations pass
+    valid_count = sum(1 for result in validation_results if result[0].startswith("✅"))
+    all_valid = (valid_count == 4)
+    
+    if all_valid:
+        st.success("🎉 All validations passed! Ready to create curriculum-based mock test.")
+    
+    # Step 5: Test Configuration - Using centralized CSS classes
+    st.markdown("""
+    <div class="step-box">
+        <div class="step-number">5</div>
+        <div class="step-title">TEST CONFIGURATION:</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        paper_type = st.radio("Choose paper type:", [
+            "Paper 1 (25 MCQs)",
+            "Paper 2 (23 Mixed)",
+            "Paper 3 (more than 25)"
+        ], key="paper_type_radio")
+    
+    with col2:
+        if paper_type == "Paper 1 (25 MCQs)":
+            st.info("✅ 25 Multiple Choice Questions")
+        elif paper_type == "Paper 2 (23 Mixed)":
+            st.info("✅ 15 MCQs + 8 Short Answer Questions")
+        else:
+            st.info("✅ 30+ Multiple Choice Questions")
+    
+    include_answers = st.checkbox("Show answers on screen after generation", value=False, key="show_answers_checkbox")
+    
+    # Submit button
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        create_btn = st.button("🚀 CREATE CURRICULUM-BASED MOCK TEST", use_container_width=True, key="create_test_btn")
+        
+        if create_btn:
+            if not all_valid:
+                st.error("❌ Please fix validation errors before creating the test")
+            else:
+                with st.spinner("🤖 Generating curriculum-specific questions..."):
+                    test_data = generate_questions(board, grade, subject, topic, paper_type, include_answers)
+                    
+                    if test_data:
+                        st.success("✅ Curriculum-based test generated successfully!")
+                        st.balloons()
+                        st.session_state.generated_test = test_data
+                        if navigate_to:
+                            navigate_to('test_display')
+                        else:
+                            st.session_state.current_page = 'test_display'
+                            st.rerun()
+                    else:
+                        st.error("❌ Failed to generate test. Please check your API connection and try again.")
+    
+    # Navigation
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🏠 Back to Home", use_container_width=True, key="back_home_btn"):
+            if navigate_to:
+                navigate_to('home')
+            else:
+                st.session_state.current_page = 'home'
+                st.rerun()
+
+# Alternative function names for backward compatibility
+def show_mock_test_creator(navigate_to=None):
+    """Alternative function name for test creator"""
+    show_test_creator(navigate_to)
+
+def main():
+    """Main function for standalone testing"""
+    show_test_creator()
+
+if __name__ == "__main__":
+    main()
