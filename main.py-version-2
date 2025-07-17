@@ -1,0 +1,1555 @@
+import streamlit as st
+import json
+import requests
+import re
+from datetime import datetime
+import os
+
+# Configure page
+st.set_page_config(
+    page_title="II Tuitions Mock Test Generator",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# FIXED CSS - CLIP POSITIONED ON PAPER + PROPER STATS BADGE
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman:wght@400;700&display=swap');
+    
+    /* Hide Streamlit elements */
+    .stApp > header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Main app styling */
+    .stApp {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+        font-family: 'Times New Roman', serif !important;
+        min-height: 100vh !important;
+    }
+    
+    /* Main content container - LARGER HORIZONTAL SIZE */
+    .main .block-container {
+        background: #8B4513 !important;
+        border-radius: 20px 20px 10px 10px !important;
+        margin: 30px auto !important;
+        max-width: 1400px !important;
+        width: 95% !important;
+        padding: 40px 30px 60px 30px !important;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
+        position: relative !important;
+        transform: perspective(1200px) rotateX(2deg) !important;
+        border: 3px solid #654321 !important;
+    }
+    
+    /* Metal clip - FIXED TO BE ON THE PAPER LIKE IMAGE 2 */
+    .main .block-container::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 20px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 160px !important;
+        height: 50px !important;
+        background: linear-gradient(145deg, #E8E8E8, #A0A0A0) !important;
+        border-radius: 25px !important;
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.5), inset 0 3px 6px rgba(255, 255, 255, 0.4) !important;
+        border: 3px solid #999 !important;
+        z-index: 15 !important;
+    }
+    
+    /* Paper background - BETTER CONTENT CONTAINMENT */
+    .main .block-container > div {
+        background: #FFFEF7 !important;
+        border-radius: 12px !important;
+        min-height: 700px !important;
+        position: relative !important;
+        box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.08) !important;
+        border: 2px solid #E0E0E0 !important;
+        padding: 70px 80px 120px 140px !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        word-wrap: break-word !important;
+        z-index: 5 !important;
+    }
+    
+    /* Paper lines - ADJUSTED FOR NEW PADDING */
+    .main .block-container > div::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-image: 
+            linear-gradient(90deg, transparent 110px, #FF6B6B 110px, #FF6B6B 113px, transparent 113px),
+            repeating-linear-gradient(180deg, transparent 0px, transparent 30px, #B8E6FF 30px, #B8E6FF 33px) !important;
+        background-size: 100% 35px !important;
+        pointer-events: none !important;
+        opacity: 0.4 !important;
+        z-index: 1 !important;
+    }
+    
+    /* Paper holes - ADJUSTED FOR NEW PADDING */
+    .main .block-container > div::after {
+        content: '' !important;
+        position: absolute !important;
+        left: 45px !important;
+        top: 50px !important;
+        width: 25px !important;
+        height: calc(100% - 100px) !important;
+        background: repeating-linear-gradient(to bottom,
+            transparent 0px, transparent 25px,
+            #F0F0F0 30px, #F0F0F0 45px,
+            transparent 50px, transparent 75px) !important;
+        z-index: 2 !important;
+        pointer-events: none !important;
+    }
+    
+    /* Content styling - CONSISTENT TEXT SIZE */
+    .main .block-container h1,
+    .main .block-container h2,
+    .main .block-container h3,
+    .main .block-container p,
+    .main .block-container div {
+        position: relative !important;
+        z-index: 10 !important;
+        color: #2c3e50 !important;
+        font-family: 'Times New Roman', serif !important;
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+    }
+    
+    .main .block-container h1 {
+        text-align: center !important;
+        font-size: 2.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .main .block-container h2 {
+        text-align: center !important;
+        font-size: 1.5rem !important;
+        font-style: italic !important;
+        margin-bottom: 1rem !important;
+        color: #34495e !important;
+    }
+    
+    /* Button styling - BIGGER AND MORE VISIBLE */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 30px !important;
+        font-weight: bold !important;
+        padding: 18px 30px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4) !important;
+        font-family: 'Times New Roman', serif !important;
+        font-size: 1.1rem !important;
+        min-width: 200px !important;
+        height: 55px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    /* Form elements */
+    div[data-testid="stSelectbox"] > div > div {
+        background: white !important;
+        border: 2px solid #DDD !important;
+        border-radius: 8px !important;
+        font-family: 'Times New Roman', serif !important;
+    }
+    
+    div[data-testid="stTextInput"] > div > div > input {
+        background: white !important;
+        border: 2px solid #DDD !important;
+        border-radius: 8px !important;
+        font-family: 'Times New Roman', serif !important;
+        padding: 12px 15px !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Stats badge - PROPERLY STYLED */
+    .stats-badge {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        padding: 20px 40px !important;
+        border-radius: 30px !important;
+        font-weight: bold !important;
+        font-size: 1.3rem !important;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3) !important;
+        display: inline-block !important;
+        margin: 20px auto !important;
+        text-align: center !important;
+        min-width: 400px !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+    
+    /* Instructions box */
+    .instructions-box {
+        background: rgba(255, 248, 220, 0.9) !important;
+        border: 2px solid #f39c12 !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin: 25px 0 !important;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1) !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+    
+    .instructions-title {
+        font-size: 1.3rem !important;
+        font-weight: bold !important;
+        color: #2c3e50 !important;
+        margin-bottom: 15px !important;
+        text-decoration: underline !important;
+        text-align: center !important;
+        font-family: 'Times New Roman', serif !important;
+    }
+    
+    /* Step boxes */
+    .step-box {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 2px solid #DDD !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin: 20px 0 !important;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
+        position: relative !important;
+        border-left: 4px solid #667eea !important;
+        z-index: 10 !important;
+    }
+    
+    .step-number {
+        position: absolute !important;
+        top: -12px !important;
+        left: 15px !important;
+        background: #667eea !important;
+        color: white !important;
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    .step-title {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: #2c3e50 !important;
+        margin-bottom: 10px !important;
+        margin-left: 20px !important;
+        font-family: 'Times New Roman', serif !important;
+    }
+    
+    /* Validation box */
+    .validation-box {
+        background: rgba(240, 248, 255, 0.95) !important;
+        border: 2px dashed #667eea !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin: 25px 0 !important;
+        text-align: center !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+    
+    .validation-title {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: #667eea !important;
+        margin-bottom: 10px !important;
+        font-family: 'Times New Roman', serif !important;
+    }
+    
+    /* Question boxes - CONSISTENT SIZE FOR ALL QUESTIONS */
+    .question-box {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 2px solid #DDD !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin: 20px 0 !important;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+        border-left: 4px solid #667eea !important;
+        position: relative !important;
+        z-index: 10 !important;
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+    }
+    
+    /* Question text consistent sizing */
+    .question-box h4,
+    .question-box p,
+    .question-box div {
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        margin: 0.5rem 0 !important;
+    }
+    
+    /* Review section - LIGHTER COLOR */
+    .review-section {
+        background: rgba(255, 255, 255, 0.7) !important;
+        color: #2c3e50 !important;
+        border-radius: 12px !important;
+        padding: 30px !important;
+        margin: 30px 0 !important;
+        text-align: center !important;
+        position: relative !important;
+        z-index: 10 !important;
+        border: 2px solid rgba(102, 126, 234, 0.2) !important;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .review-card {
+        background: rgba(102, 126, 234, 0.1) !important;
+        padding: 25px !important;
+        border-radius: 15px !important;
+        border: 2px solid rgba(102, 126, 234, 0.2) !important;
+        text-align: center !important;
+        transition: transform 0.3s ease !important;
+        margin: 15px 0 !important;
+        color: #2c3e50 !important;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .review-card:hover {
+        transform: translateY(-3px) !important;
+    }
+    
+    /* Success/Error messages */
+    .stSuccess, .stError, .stWarning, .stInfo {
+        font-family: 'Times New Roman', serif !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+    
+    /* Mobile responsiveness - ADJUSTED FOR LARGER SIZE */
+    @media (max-width: 768px) {
+        .main .block-container {
+            margin: 15px 5px !important;
+            padding: 25px 15px 40px 15px !important;
+            transform: none !important;
+            width: 98% !important;
+            max-width: none !important;
+        }
+        
+        .main .block-container > div {
+            padding: 50px 25px 80px 80px !important;
+        }
+        
+        .main .block-container h1 {
+            font-size: 2rem !important;
+        }
+        
+        .main .block-container h2 {
+            font-size: 1.2rem !important;
+        }
+        
+        .main .block-container::before {
+            width: 120px !important;
+            height: 40px !important;
+            top: 15px !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Configuration
+CLAUDE_API_KEY = ""
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+
+# Add these imports for PDF generation
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
+def get_board_specific_guidelines(board, grade, subject, topic):
+    """Get comprehensive guidelines for ALL boards, grades, subjects, and topics"""
+    
+    # Universal grade-level cognitive development guidelines
+    grade_development = {
+        1: "Basic recognition, simple vocabulary, concrete concepts, visual learning",
+        2: "Simple sentences, basic operations, pattern recognition, foundational skills",
+        3: "Expanded vocabulary, multi-step processes, comparison skills, basic analysis",
+        4: "Complex sentences, problem-solving, categorization, logical reasoning",
+        5: "Abstract thinking begins, detailed explanations, cause-effect relationships",
+        6: "Advanced vocabulary, multi-step problems, analytical thinking, applications",
+        7: "Complex concepts, critical thinking, detailed analysis, practical applications",
+        8: "Abstract reasoning, sophisticated vocabulary, advanced problem-solving",
+        9: "High-level analysis, complex applications, preparation for advanced study",
+        10: "Board exam preparation, advanced concepts, comprehensive understanding",
+        11: "Pre-university level, specialized knowledge, research-based learning",
+        12: "University preparation, expert-level understanding, independent analysis"
+    }
+    
+    # Board-specific educational philosophies and styles
+    board_characteristics = {
+        "CBSE": {
+            "philosophy": "Holistic development, practical application, Indian cultural context",
+            "language": "Indian English, Hindi transliterations when relevant",
+            "examples": "Indian cities, cultural references, local contexts",
+            "assessment": "Application-based, real-world problems, analytical thinking",
+            "difficulty": "Balanced approach, comprehensive coverage, skill development"
+        },
+        "ICSE": {
+            "philosophy": "Analytical thinking, detailed study, British educational system",
+            "language": "British English spellings and grammar",
+            "examples": "International contexts, analytical scenarios",
+            "assessment": "Detailed answers, analytical questions, comprehensive evaluation",
+            "difficulty": "Higher complexity, detailed explanations, thorough understanding"
+        },
+        "Cambridge IGCSE": {
+            "philosophy": "International perspective, global contexts, academic excellence",
+            "language": "International English, academic vocabulary",
+            "examples": "Global examples, international case studies, multicultural contexts",
+            "assessment": "Cambridge assessment style, structured questions, evidence-based answers",
+            "difficulty": "International standards, university preparation, rigorous evaluation"
+        },
+        "IB": {
+            "philosophy": "Inquiry-based learning, international mindedness, critical thinking",
+            "language": "Academic English, inquiry-based terminology",
+            "examples": "Global perspectives, intercultural understanding, real-world applications",
+            "assessment": "Concept-based, inquiry-driven, reflection and analysis",
+            "difficulty": "High academic rigor, conceptual understanding, independent thinking"
+        },
+        "State Board": {
+            "philosophy": "Regional relevance, state-specific curriculum, accessible education",
+            "language": "Local language influences, regional terminology",
+            "examples": "State-specific examples, local geography and culture",
+            "assessment": "State pattern questions, curriculum-aligned, practical focus",
+            "difficulty": "State standards, accessible to diverse learners, practical applications"
+        }
+    }
+    
+    # Generate comprehensive guidelines
+    def generate_guidelines(board, grade, subject, topic):
+        # Get base characteristics
+        board_info = board_characteristics.get(board, board_characteristics["CBSE"])
+        grade_level = grade_development.get(grade, f"Grade {grade} cognitive level")
+        
+        guidelines = f"""
+BOARD: {board}
+{board_info['philosophy']}
+Language: {board_info['language']}
+Examples: {board_info['examples']}
+Assessment Style: {board_info['assessment']}
+
+GRADE {grade} LEVEL:
+Cognitive Development: {grade_level}
+
+TOPIC: "{topic}"
+Focus: All questions must be specifically about "{topic}" as taught in {board} Grade {grade} {subject}
+Complexity: Match {board} Grade {grade} examination standards
+Context: Use {board_info['examples']} where appropriate
+Language: {board_info['language']} terminology and style
+"""
+        return guidelines
+    
+    return generate_guidelines(board, grade, subject, topic)
+
+# Enhanced Subject mapping with curriculum standards
+def get_subjects_by_board():
+    return {
+        "CBSE": {
+            1: ["Mathematics", "English", "Hindi", "EVS"],
+            2: ["Mathematics", "English", "Hindi", "EVS"],
+            3: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            4: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            5: ["Mathematics", "English", "Hindi", "EVS", "Computer Science"],
+            6: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            7: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            8: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit"],
+            9: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit", "Computer Science"],
+            10: ["Mathematics", "English", "Hindi", "Science", "Social Science", "Sanskrit", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Business Studies"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Business Studies"]
+        },
+        "ICSE": {
+            1: ["Mathematics", "English", "Hindi", "EVS"],
+            2: ["Mathematics", "English", "Hindi", "EVS"],
+            3: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            4: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            5: ["Mathematics", "English", "Hindi", "EVS", "Computer Applications"],
+            6: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            7: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            8: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography"],
+            9: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography", "Computer Applications"],
+            10: ["Mathematics", "English", "Hindi", "Physics", "Chemistry", "Biology", "History", "Geography", "Computer Applications"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Commerce"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics", "Commerce"]
+        },
+        "IB": {
+            1: ["Mathematics", "English", "Science", "Social Studies"],
+            2: ["Mathematics", "English", "Science", "Social Studies"],
+            3: ["Mathematics", "English", "Science", "Social Studies"],
+            4: ["Mathematics", "English", "Science", "Social Studies"],
+            5: ["Mathematics", "English", "Science", "Social Studies"],
+            6: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            7: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            8: ["Mathematics", "English", "Science", "Social Studies", "Arts"],
+            9: ["Mathematics", "English", "Science", "Social Studies", "Arts", "Computer Science"],
+            10: ["Mathematics", "English", "Science", "Social Studies", "Arts", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Economics", "Business Management"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Economics", "Business Management"]
+        },
+        "Cambridge IGCSE": {
+            1: ["Mathematics", "English", "Science", "Social Studies"],
+            2: ["Mathematics", "English", "Science", "Social Studies"],
+            3: ["Mathematics", "English", "Science", "Social Studies"],
+            4: ["Mathematics", "English", "Science", "Social Studies"],
+            5: ["Mathematics", "English", "Science", "Social Studies"],
+            6: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            7: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            8: ["Mathematics", "English", "Science", "Social Studies", "ICT"],
+            9: ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Computer Science", "Economics"],
+            10: ["Mathematics", "English", "Physics", "Chemistry", "Biology", "Computer Science", "Economics"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"]
+        },
+        "State Board": {
+            1: ["Mathematics", "English", "Mother Tongue", "EVS"],
+            2: ["Mathematics", "English", "Mother Tongue", "EVS"],
+            3: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            4: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            5: ["Mathematics", "English", "Mother Tongue", "EVS", "Computer Science"],
+            6: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            7: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            8: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science"],
+            9: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science", "Computer Science"],
+            10: ["Mathematics", "English", "Mother Tongue", "Science", "Social Science", "Computer Science"],
+            11: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"],
+            12: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Computer Science", "Economics"]
+        }
+    }
+
+def test_claude_api():
+    """Test Claude API connection"""
+    try:
+        if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+            return False, "API key not configured"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": CLAUDE_API_KEY,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "Test"}]
+        }
+        
+        response = requests.post(CLAUDE_API_URL, headers=headers, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            return True, "API connection successful"
+        elif response.status_code == 401:
+            return False, f"API Authentication failed - check your API key"
+        elif response.status_code == 429:
+            return False, f"API rate limit exceeded - try again later"
+        else:
+            try:
+                error_detail = response.json()
+                return False, f"API Error {response.status_code}: {error_detail.get('error', {}).get('message', 'Unknown error')}"
+            except:
+                return False, f"API Error: {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+
+def verify_api_key():
+    """Verify API key with details"""
+    st.write("🔍 **API Key Verification:**")
+    
+    if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+        st.error("❌ API key not configured")
+        return False
+    
+    if not CLAUDE_API_KEY.startswith("sk-ant-api03-"):
+        st.error("❌ Invalid API key format")
+        return False
+    
+    st.success("✅ API key format is correct")
+    
+    # Test connection
+    working, message = test_claude_api()
+    if working:
+        st.success(f"✅ {message}")
+    else:
+        st.error(f"❌ {message}")
+    
+    return working
+
+def generate_questions(board, grade, subject, topic, paper_type, include_answers_on_screen):
+    """Generate board-specific, grade-specific questions using Claude AI"""
+    
+    # Determine counts based on paper type
+    if paper_type == "Paper 1 (25 MCQs)":
+        mcq_count = 25
+        short_count = 0
+    elif paper_type == "Paper 2 (23 Mixed)":
+        mcq_count = 15
+        short_count = 8
+    else:  # Paper 3 (more than 25)
+        mcq_count = 30
+        short_count = 0
+    
+    prompt = f"""Create a {board} Grade {grade} {subject} test on "{topic}".
+
+Generate {mcq_count} multiple choice questions and {short_count} short answer questions.
+
+Return ONLY valid JSON in this exact format:
+{{
+    "test_info": {{
+        "board": "{board}",
+        "grade": {grade},
+        "subject": "{subject}",
+        "topic": "{topic}",
+        "paper_type": "{paper_type}",
+        "total_questions": {mcq_count + short_count},
+        "show_answers_on_screen": {str(include_answers_on_screen).lower()}
+    }},
+    "questions": [
+        {{
+            "question_number": 1,
+            "type": "mcq",
+            "question": "Sample question about {topic}?",
+            "options": {{
+                "A": "Option A",
+                "B": "Option B", 
+                "C": "Option C",
+                "D": "Option D"
+            }},
+            "correct_answer": "A",
+            "explanation": "Brief explanation"
+        }}
+    ]
+}}
+
+CRITICAL: Return ONLY the JSON. No other text before or after."""
+
+    try:
+        if not CLAUDE_API_KEY or CLAUDE_API_KEY == "REPLACE_WITH_YOUR_API_KEY":
+            st.error("❌ API key not configured")
+            return None
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": CLAUDE_API_KEY,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 4000,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        
+        response = requests.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['content'][0]['text']
+            
+            # Clean and extract JSON
+            content = content.strip()
+            
+            if '```json' in content:
+                start = content.find('```json') + 7
+                end = content.find('```', start)
+                if end != -1:
+                    content = content[start:end]
+            elif '```' in content:
+                start = content.find('```') + 3
+                end = content.find('```', start)
+                if end != -1:
+                    content = content[start:end]
+            
+            content = content.strip()
+            
+            try:
+                test_data = json.loads(content)
+                
+                # Ensure test_info has required fields
+                if 'test_info' in test_data:
+                    test_data['test_info']['show_answers_on_screen'] = include_answers_on_screen
+                    test_data['test_info']['curriculum_standard'] = f"{board} Grade {grade} {subject}"
+                
+                return test_data
+                
+            except json.JSONDecodeError as e:
+                st.error(f"❌ JSON Parse Error: {str(e)}")
+                return None
+            
+        else:
+            st.error(f"❌ API Error {response.status_code}")
+            return None
+            
+    except Exception as e:
+        st.error(f"❌ Request failed: {str(e)}")
+        return None
+
+def get_enhanced_subject_keywords():
+    """Enhanced keywords for topic validation with curriculum focus"""
+    return {
+        "Mathematics": [
+            "number", "numbers", "addition", "subtraction", "multiplication", "division", "counting",
+            "algebra", "geometry", "calculus", "arithmetic", "trigonometry", "statistics", "probability",
+            "equation", "equations", "function", "functions", "graph", "graphs", "formula", "formulas",
+            "fraction", "fractions", "decimal", "decimals", "percentage", "percentages", "ratio", "ratios", "proportion",
+            "linear", "quadratic", "polynomial", "polynomials", "derivative", "derivatives", "integral", "integrals",
+            "limit", "limits", "theorem", "theorems", "proof", "proofs", "expression", "expressions", 
+            "variable", "variables", "constant", "constants", "coefficient", "coefficients",
+            "angle", "angles", "triangle", "triangles", "circle", "circles", "square", "squares", 
+            "rectangle", "rectangles", "polygon", "polygons", "volume", "area", "perimeter",
+            "coordinate", "coordinates", "slope", "parallel", "perpendicular",
+            "matrix", "matrices", "determinant", "determinants", "vector", "vectors"
+        ],
+        "Science": [
+            "matter", "energy", "force", "motion", "gravity", "friction", "pressure", "temperature",
+            "heat", "light", "sound", "electricity", "magnetism", "wave", "waves", "radiation",
+            "physics", "velocity", "acceleration", "momentum", "power", "work", "machine", "machines",
+            "chemistry", "atom", "atoms", "molecule", "molecules", "element", "elements", "compound", "compounds",
+            "reaction", "reactions", "acid", "acids", "base", "bases", "salt", "salts", "pH",
+            "biology", "cell", "cells", "tissue", "tissues", "organ", "organs", "system", "systems",
+            "photosynthesis", "respiration", "digestion", "circulation", "reproduction", "evolution",
+            "genetics", "DNA", "RNA", "gene", "genes", "protein", "proteins", "enzyme", "enzymes"
+        ],
+        "Chemistry": [
+            "atom", "atoms", "molecule", "molecules", "element", "elements", "compound", "compounds", 
+            "reaction", "reactions", "acid", "acids", "base", "bases", "salt", "salts", "carbon", 
+            "organic", "inorganic", "periodic", "bond", "bonds", "electron", "electrons", "proton", "protons", 
+            "neutron", "neutrons", "catalyst", "catalysts", "solution", "solutions", "mixture", "mixtures", 
+            "oxidation", "reduction", "pH", "molarity", "valency", "isotope", "isotopes"
+        ],
+        "Physics": [
+            "motion", "force", "forces", "energy", "electricity", "magnetism", "light", "sound", "heat", 
+            "wave", "waves", "particle", "particles", "atom", "atoms", "quantum", "relativity", "mechanics", 
+            "thermodynamics", "optics", "acoustics", "velocity", "acceleration", "momentum", "friction", 
+            "gravity", "gravitational", "pressure", "temperature", "current", "voltage", "resistance"
+        ],
+        "Biology": [
+            "cell", "cells", "tissue", "tissues", "organ", "organs", "system", "systems", 
+            "photosynthesis", "respiration", "digestion", "circulation", "reproduction", "evolution",
+            "genetics", "DNA", "RNA", "gene", "genes", "protein", "proteins", "enzyme", "enzymes",
+            "hormone", "hormones", "plant", "plants", "animal", "animals", "bacteria", "virus", "viruses"
+        ],
+        "English": [
+            "grammar", "literature", "writing", "reading", "comprehension", "vocabulary", "poetry",
+            "prose", "novel", "novels", "story", "stories", "essay", "essays", "paragraph", "paragraphs", 
+            "sentence", "sentences", "word", "words", "letter", "letters", "phonics", "spelling"
+        ],
+        "Hindi": [
+            "व्याकरण", "साहित्य", "कविता", "गद्य", "उपन्यास", "कहानी", "निबंध", "अनुच्छेद",
+            "वाक्य", "शब्द", "अक्षर", "वर्ण", "संज्ञा", "सर्वनाम", "विशेषण", "क्रिया"
+        ],
+        "Social Science": [
+            "history", "geography", "civics", "economics", "politics", "government", "society", "culture",
+            "civilization", "civilizations", "war", "wars", "independence", "freedom", "constitution", 
+            "democracy", "republic", "monarchy", "empire", "empires", "map", "maps", "climate", "weather"
+        ],
+        "History": [
+            "ancient", "medieval", "modern", "contemporary", "war", "wars", "battle", "battles",
+            "independence", "freedom", "civilization", "civilizations", "empire", "empires",
+            "king", "kings", "queen", "queens", "ruler", "rulers", "dynasty", "dynasties"
+        ],
+        "Geography": [
+            "map", "maps", "continent", "continents", "country", "countries", "state", "states",
+            "city", "cities", "river", "rivers", "mountain", "mountains", "ocean", "oceans",
+            "climate", "weather", "population", "resources", "agriculture", "industry"
+        ],
+        "Computer Science": [
+            "programming", "algorithm", "algorithms", "data", "structure", "structures", "software", 
+            "hardware", "internet", "network", "networks", "database", "databases", "coding", 
+            "python", "java", "javascript", "html", "css", "computer", "computers"
+        ],
+        "Economics": [
+            "money", "market", "markets", "trade", "business", "profit", "loss", "demand", "supply",
+            "price", "prices", "inflation", "economy", "economic", "finance", "financial"
+        ],
+        "EVS": [
+            "environment", "environmental", "nature", "natural", "pollution", "conservation", "wildlife",
+            "forest", "forests", "water", "air", "soil", "plant", "plants", "animal", "animals"
+        ]
+    }
+
+def check_topic_relevance(topic, subject):
+    """Enhanced topic relevance checking with better curriculum matching"""
+    if not topic or not subject:
+        return True, []
+    
+    keywords_dict = get_enhanced_subject_keywords()
+    
+    # Safe string operations
+    topic_clean = str(topic).lower().strip()
+    subject_keywords = keywords_dict.get(subject, [])
+    
+    # Check for direct matches or partial matches
+    matches = False
+    matched_keywords = []
+    
+    for keyword in subject_keywords:
+        keyword_clean = str(keyword).lower()
+        # Check if keyword is in topic or topic is in keyword (both ways)
+        if keyword_clean in topic_clean or topic_clean in keyword_clean:
+            matches = True
+            matched_keywords.append(keyword)
+    
+    # Additional check for Science subject (covers Physics, Chemistry, Biology)
+    if not matches and subject == "Science":
+        for science_subject in ["Physics", "Chemistry", "Biology"]:
+            if science_subject in keywords_dict:
+                for keyword in keywords_dict[science_subject]:
+                    keyword_clean = str(keyword).lower()
+                    if keyword_clean in topic_clean or topic_clean in keyword_clean:
+                        matches = True
+                        matched_keywords.append(keyword)
+                        break
+                if matches:
+                    break
+    
+    return matches, subject_keywords
+
+def display_generated_test(test_data):
+    """Display the generated test in a formatted way"""
+    if not test_data:
+        st.error("No test data to display")
+        return
+    
+    test_info = test_data.get('test_info', {})
+    questions = test_data.get('questions', [])
+    show_answers_on_screen = test_info.get('show_answers_on_screen', False)
+    
+    # Test header
+    st.markdown(f"""
+    # 🎓 II Tuition Mock Test Generated
+    
+    ## {test_info.get('subject', 'Subject')} Mock Test
+    
+    **Board:** {test_info.get('board', 'N/A')} | **Grade:** {test_info.get('grade', 'N/A')} | **Topic:** {test_info.get('topic', 'N/A')}
+    
+    **Paper Type:** {test_info.get('paper_type', 'N/A')} | **Total Questions:** {test_info.get('total_questions', len(questions))}
+    """)
+    
+    # Instructions section
+    st.markdown("### 📋 Instructions:")
+    
+    with st.container():
+        st.markdown("""
+        <div class="instructions-box">
+            <div class="instructions-title">📖 Test Guidelines</div>
+            <p style="color: #2c3e50; margin-bottom: 0;">This test is designed according to your curriculum standards. Read questions carefully and choose the best answers.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    instructions_col1, instructions_col2 = st.columns(2)
+    
+    with instructions_col1:
+        st.markdown("""
+        - Read all questions carefully before answering
+        - For multiple choice questions, select the best option
+        - Take your time to understand each question
+        """)
+    
+    with instructions_col2:
+        st.markdown("""
+        - Show all working for calculation problems
+        - Write clearly for descriptive answers
+        - Manage your time effectively
+        """)
+    
+    st.markdown("---")
+    
+    # Questions display
+    for i, question in enumerate(questions, 1):
+        with st.container():
+            st.markdown(f"""
+            <div class="question-box">
+                <h4 style="color: #667eea; margin-bottom: 0.5rem;">Question {i}</h4>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown(f"**{question.get('question', 'Question text missing')}**")
+        
+        if question.get('type') == 'mcq' and 'options' in question:
+            options = question['options']
+            for option_key, option_text in options.items():
+                st.write(f"**{option_key})** {option_text}")
+            
+            # Only show correct answer if "Show Answers on Screen" was checked
+            if show_answers_on_screen and 'correct_answer' in question and question['correct_answer']:
+                st.success(f"**Correct Answer: {question['correct_answer']}**")
+                # Show explanation if available
+                if 'explanation' in question and question['explanation']:
+                    st.info(f"**Explanation:** {question['explanation']}")
+        
+        elif question.get('type') == 'short_answer':
+            st.write("**[Short Answer Question - Write your detailed answer below]**")
+            # Only show sample answer if "Show Answers on Screen" was checked
+            if show_answers_on_screen and 'sample_answer' in question and question['sample_answer']:
+                st.info(f"**Sample Answer:** {question['sample_answer']}")
+        
+        st.markdown("---")
+
+def get_available_subjects(board, grade):
+    """Get available subjects for board and grade"""
+    subjects_data = get_subjects_by_board()
+    board_data = subjects_data.get(board, {})
+    return board_data.get(grade, [])
+
+def create_questions_pdf(test_data, filename="questions.pdf"):
+    """Create PDF with questions only"""
+    if not PDF_AVAILABLE:
+        st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        return None
+    
+    try:
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # II Tuition Title style
+        tuitions_title_style = ParagraphStyle(
+            'TuitionsTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=10,
+            alignment=1,  # Center
+            textColor=colors.darkblue
+        )
+        
+        test_info = test_data.get('test_info', {})
+        questions = test_data.get('questions', [])
+        
+        # II Tuition Header
+        story.append(Paragraph("🎓 II Tuition Mock Test Generated", tuitions_title_style))
+        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} Mock Test", tuitions_title_style))
+        story.append(Paragraph(f"Board: {test_info.get('board', 'N/A')} | Grade: {test_info.get('grade', 'N/A')} | Topic: {test_info.get('topic', 'N/A')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Instructions
+        story.append(Paragraph("Instructions:", styles['Heading2']))
+        story.append(Paragraph("• Read all questions carefully", styles['Normal']))
+        story.append(Paragraph("• Choose the best answer for multiple choice questions", styles['Normal']))
+        story.append(Paragraph("• Write clearly for descriptive answers", styles['Normal']))
+        story.append(Paragraph("• Manage your time effectively", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Questions
+        for i, question in enumerate(questions, 1):
+            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+            
+            if question.get('type') == 'mcq' and 'options' in question:
+                options = question['options']
+                for option_key, option_text in options.items():
+                    story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;<b>{option_key})</b> {option_text}", styles['Normal']))
+            
+            story.append(Spacer(1, 15))
+        
+        doc.build(story)
+        return filename
+        
+    except Exception as e:
+        st.error(f"Error creating PDF: {str(e)}")
+        return None
+
+def create_answers_pdf(test_data, filename="answers.pdf"):
+    """Create PDF with answers only"""
+    if not PDF_AVAILABLE:
+        st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        return None
+    
+    try:
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        test_info = test_data.get('test_info', {})
+        questions = test_data.get('questions', [])
+        
+        # Header
+        story.append(Paragraph("🎓 II Tuition Mock Test - Answer Key", styles['Heading1']))
+        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} Mock Test Answers", styles['Heading2']))
+        story.append(Spacer(1, 20))
+        
+        # Answers
+        for i, question in enumerate(questions, 1):
+            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+            
+            # Show the correct answer
+            if 'correct_answer' in question and question['correct_answer']:
+                story.append(Paragraph(f"<b>Correct Answer:</b> {question['correct_answer']}", styles['Normal']))
+            elif 'sample_answer' in question and question['sample_answer']:
+                story.append(Paragraph(f"<b>Sample Answer:</b> {question['sample_answer']}", styles['Normal']))
+            
+            # Show explanation if available
+            if 'explanation' in question and question['explanation']:
+                story.append(Paragraph(f"<b>Explanation:</b> {question['explanation']}", styles['Normal']))
+            
+            story.append(Spacer(1, 15))
+        
+        doc.build(story)
+        return filename
+        
+    except Exception as e:
+        st.error(f"Error creating PDF: {str(e)}")
+        return None
+
+# Initialize session state
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'home'
+
+if 'generated_test' not in st.session_state:
+    st.session_state.generated_test = None
+
+if 'form_data' not in st.session_state:
+    st.session_state.form_data = {
+        'board': '',
+        'grade': 0,
+        'subject': '',
+        'topic': ''
+    }
+
+# MAIN APPLICATION CONTENT - NO HTML CONTAINERS, JUST STREAMLIT
+if st.session_state.current_page == 'home':
+    # Header - CENTERED AND BIGGER
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 40px;">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+            <span style="font-size: 2rem; margin-right: 10px;">🎯</span>
+            <h1 style="color: #2c3e50; font-size: 2.5rem; margin: 0;">II TUITIONS</h1>
+        </div>
+        <h2 style="color: #34495e; font-size: 1.5rem; font-style: italic; margin-bottom: 1rem;">MOCK TEST GENERATOR</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # FIXED STATS BADGE - PROPER HTML RENDERING
+    st.markdown("""
+    <div style="display: flex; justify-content: center; margin: 30px 0;">
+        <div class="stats-badge">📊 3,675 Curriculum-Based Tests Generated</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Instructions
+    with st.container():
+        st.markdown("""
+        <div class="instructions-box">
+            <div class="instructions-title">INSTRUCTIONS:</div>
+            <div style="color: #2c3e50; font-size: 1rem; line-height: 1.6;">
+                <strong>1.</strong> Fill in all required fields carefully<br>
+                <strong>2.</strong> Select your education board, grade, subject, and topic<br>
+                <strong>3.</strong> Ensure all validations pass before generating test<br>
+                <strong>4.</strong> Generated test will be based on your curriculum standards
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Create Test Button - CENTERED AND BIGGER
+    st.markdown("""
+    <div style="display: flex; justify-content: center; margin: 40px 0;">
+        <style>
+        .big-create-button {
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 30px !important;
+            font-weight: bold !important;
+            font-size: 1.3rem !important;
+            padding: 20px 50px !important;
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4) !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            font-family: 'Times New Roman', serif !important;
+            min-width: 400px !important;
+            display: block !important;
+            text-align: center !important;
+        }
+        .big-create-button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.5) !important;
+        }
+        </style>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Create Test", use_container_width=True, key="big_create_test"):
+            st.session_state.current_page = 'create_test'
+            st.rerun()
+    
+    # Review Section
+    with st.container():
+        st.markdown("""
+        <div class="review-section">
+            <h2 style="text-align: center; margin-bottom: 2rem;">⭐ Review</h2>
+            <p style="text-align: center; margin-bottom: 2rem;">Review your progress, results, and get feedback from teachers and parents</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Review Cards
+    cols = st.columns(4)
+    review_data = [
+        ("👨‍🏫 Teacher Review", "Get feedback from educators", "124 reviews"),
+        ("👨‍👩‍👧‍👦 Parent Review", "Parental feedback & support", "89 reviews"),
+        ("👨‍🏫 Teacher Review", "Academic performance insights", "156 reviews"),
+        ("👨‍👩‍👧‍👦 Parent Review", "Progress tracking & guidance", "201 reviews")
+    ]
+    
+    for i, (title, desc, count) in enumerate(review_data):
+        with cols[i]:
+            st.markdown(f"""
+            <div class="review-card">
+                <h3>{title}</h3>
+                <p>{desc}</p>
+                <div style="color: #FFD700;">⭐⭐⭐⭐⭐</div>
+                <p>{count}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # View Reviews Button - CENTERED AND BIG
+    st.markdown("""
+    <div style="display: flex; justify-content: center; margin: 40px 0;">
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("View Reviews", use_container_width=True, key="big_view_reviews"):
+            st.info("📝 Reviews section coming soon! This will include detailed feedback from teachers, parents, and students.")
+
+elif st.session_state.current_page == 'create_test':
+    st.markdown('# 🎯 Create Mock Test')
+    
+    # API Test Section
+    st.markdown("### 🔍 Claude AI Configuration Test")
+    
+    # Show API key status
+    st.write("**Current API Key Status:**")
+    if CLAUDE_API_KEY and CLAUDE_API_KEY != "REPLACE_WITH_YOUR_API_KEY":
+        key_preview = CLAUDE_API_KEY[:15] + "..." + CLAUDE_API_KEY[-8:]
+        st.success(f"✅ API Key configured: {key_preview}")
+    else:
+        st.error("❌ API Key not configured")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔍 Test Claude API", key="test_api_big", use_container_width=True):
+            with st.spinner("Testing API connection..."):
+                working, message = test_claude_api()
+                if working:
+                    st.success(f"✅ {message}")
+                    st.balloons()
+                else:
+                    st.error(f"❌ {message}")
+                    if "401" in message:
+                        st.info("🔧 **Troubleshooting Tips:**")
+                        st.info("1. Check if your API key is correct")
+                        st.info("2. Verify you have Claude API credits remaining")
+                        st.info("3. Make sure the API key hasn't expired")
+    
+    with col2:
+        if st.button("📋 Detailed API Verification", key="verify_api_big", use_container_width=True):
+            verify_api_key()
+    
+    st.markdown("---")
+    
+    # Step 1: Board Selection
+    with st.container():
+        st.markdown("""
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-title">SELECT EDUCATION BOARD:</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    board_options = ["Select Board", "CBSE", "ICSE", "IB", "Cambridge IGCSE", "State Board"]
+    selected_board = st.selectbox(
+        "Choose from major education boards recognized globally", 
+        board_options, 
+        index=0,
+        key="board_select"
+    )
+    
+    if selected_board != "Select Board":
+        board = selected_board
+    else:
+        board = ''
+    
+    # Step 2: Grade Selection
+    with st.container():
+        st.markdown("""
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-title">SELECT GRADE LEVEL:</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    if board:
+        grade_options = ["Select Grade"] + [f"Grade {i}" for i in range(1, 13)]
+        selected_grade = st.selectbox(
+            "Select your current academic grade (1-12)", 
+            grade_options, 
+            index=0,
+            key=f"grade_select_{board}"
+        )
+        
+        if selected_grade != "Select Grade":
+            try:
+                grade_text = str(selected_grade)
+                grade_num = int(grade_text.replace("Grade ", ""))
+                grade = grade_num
+            except (ValueError, AttributeError):
+                grade = 0
+        else:
+            grade = 0
+    else:
+        st.selectbox(
+            "Select your current academic grade (1-12)", 
+            ["Please select Board first"], 
+            disabled=True,
+            key="grade_disabled"
+        )
+        grade = 0
+    
+    # Step 3: Subject Selection
+    with st.container():
+        st.markdown("""
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-title">SELECT SUBJECT:</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    if board and grade > 0:
+        available_subjects = get_available_subjects(board, grade)
+        
+        if available_subjects:
+            subject_options = ["Select Subject"] + available_subjects
+            selected_subject = st.selectbox(
+                "Choose the subject for which you want to generate the mock test", 
+                subject_options, 
+                index=0,
+                key=f"subject_select_{board}_{grade}"
+            )
+            
+            if selected_subject != "Select Subject":
+                subject = selected_subject
+                st.success(f"✅ Selected: {subject} for {board} Grade {grade}")
+            else:
+                subject = ''
+        else:
+            st.error(f"❌ No subjects available for {board} Grade {grade}")
+            subject = ''
+    else:
+        st.selectbox(
+            "Choose the subject for which you want to generate the mock test", 
+            ["Please select Board and Grade first"], 
+            disabled=True,
+            key=f"subject_placeholder"
+        )
+        subject = ''
+    
+    # Step 4: Topic Input
+    with st.container():
+        st.markdown("""
+        <div class="step-box">
+            <div class="step-number">4</div>
+            <div class="step-title">ENTER TOPIC:</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    if subject:
+        topic_input = st.text_input(
+            "Specify the exact topic or chapter you want to focus on", 
+            placeholder=f"e.g., Photosynthesis, Quadratic Equations, World War II", 
+            key=f"topic_input_{subject}"
+        )
+        
+        if topic_input:
+            topic = topic_input.strip()
+        else:
+            topic = ''
+    else:
+        st.text_input(
+            "Specify the exact topic or chapter you want to focus on", 
+            placeholder="Please select a subject first", 
+            disabled=True,
+            key="topic_disabled"
+        )
+        topic = ''
+    
+    # Topic validation
+    topic_valid = True
+    
+    if topic and subject:
+        is_relevant, keywords = check_topic_relevance(topic, subject)
+        if not is_relevant:
+            topic_valid = False
+            st.error(f"⚠️ Topic '{topic}' doesn't seem to match {subject}")
+            
+            # Show suggestions
+            if keywords:
+                st.info(f"💡 Try topics related to {subject}:")
+                
+                col1, col2 = st.columns(2)
+                keywords_count = len(keywords)
+                mid_point = keywords_count // 2
+                
+                with col1:
+                    st.write("**Suggestions:**")
+                    for i in range(min(mid_point, 8)):
+                        if i < len(keywords):
+                            keyword = str(keywords[i])
+                            st.write(f"• {keyword.title()}")
+                
+                with col2:
+                    st.write("**More topics:**")
+                    start_idx = mid_point
+                    for i in range(start_idx, min(start_idx + 8, len(keywords))):
+                        if i < len(keywords):
+                            keyword = str(keywords[i])
+                            st.write(f"• {keyword.title()}")
+        else:
+            st.success(f"✅ Topic '{topic}' is valid for {subject}")
+    elif topic and not subject:
+        st.warning("⚠️ Please select a subject first to validate your topic")
+        topic_valid = False
+    
+    # Validation Summary
+    with st.container():
+        st.markdown("""
+        <div class="validation-box">
+            <div class="validation-title">📋 VALIDATION SUMMARY</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    validation_results = []
+    
+    if board:
+        validation_results.append((f"✅ BOARD: {board} Selected", "success"))
+    else:
+        validation_results.append(("❌ BOARD: Please select a board", "error"))
+    
+    if grade > 0:
+        validation_results.append((f"✅ GRADE: Grade {grade} Selected", "success"))
+    else:
+        validation_results.append(("❌ GRADE: Please select a grade", "error"))
+    
+    if subject:
+        validation_results.append((f"✅ SUBJECT: {subject} Selected", "success"))
+    else:
+        validation_results.append(("❌ SUBJECT: Please select a subject", "error"))
+    
+    if topic and topic_valid:
+        validation_results.append((f"✅ TOPIC: '{topic}' is Valid", "success"))
+    elif topic and not topic_valid:
+        validation_results.append(("❌ TOPIC: Topic doesn't match subject", "error"))
+    else:
+        validation_results.append(("❌ TOPIC: Please enter a topic", "error"))
+    
+    # Display validation results
+    for message, msg_type in validation_results:
+        if msg_type == "success":
+            st.success(message)
+        else:
+            st.error(message)
+    
+    # Check if all validations pass
+    valid_count = sum(1 for result in validation_results if result[0].startswith("✅"))
+    all_valid = (valid_count == 4)
+    
+    if all_valid:
+        st.success("🎉 All validations passed! Ready to create curriculum-based mock test.")
+    
+    # Step 5: Test Configuration
+    with st.container():
+        st.markdown("""
+        <div class="step-box">
+            <div class="step-number">5</div>
+            <div class="step-title">TEST CONFIGURATION:</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        paper_type = st.radio("Choose paper type:", [
+            "Paper 1 (25 MCQs)",
+            "Paper 2 (23 Mixed)",
+            "Paper 3 (more than 25)"
+        ])
+    
+    with col2:
+        if paper_type == "Paper 1 (25 MCQs)":
+            st.info("✅ 25 Multiple Choice Questions")
+        elif paper_type == "Paper 2 (23 Mixed)":
+            st.info("✅ 15 MCQs + 8 Short Answer Questions")
+        else:
+            st.info("✅ 30+ Multiple Choice Questions")
+    
+    include_answers = st.checkbox("Show answers on screen after generation", value=False)
+    
+    # Submit button - BIGGER SIZE
+    st.markdown("---")
+    st.markdown("""
+    <div style="display: flex; justify-content: center; margin: 40px 0;">
+        <style>
+        .big-submit-button {
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 30px !important;
+            font-weight: bold !important;
+            font-size: 1.3rem !important;
+            padding: 20px 50px !important;
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4) !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            font-family: 'Times New Roman', serif !important;
+            min-width: 500px !important;
+            text-align: center !important;
+        }
+        .big-submit-button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.5) !important;
+        }
+        </style>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        create_btn = st.button("🚀 GENERATE TEST", use_container_width=True, key="big_generate_btn")
+        
+        if create_btn:
+            if not all_valid:
+                st.error("❌ Please fix validation errors before creating the test")
+            else:
+                with st.spinner("🤖 Generating curriculum-specific questions..."):
+                    test_data = generate_questions(board, grade, subject, topic, paper_type, include_answers)
+                    
+                    if test_data:
+                        st.success("✅ Curriculum-based test generated successfully!")
+                        st.balloons()
+                        st.session_state.generated_test = test_data
+                        st.session_state.current_page = 'test_display'
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to generate test. Please check your API connection and try again.")
+    
+    # Navigation
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🏠 Back to Home", use_container_width=True):
+            st.session_state.current_page = 'home'
+            st.rerun()
+
+elif st.session_state.current_page == 'test_display':
+    if st.session_state.generated_test:
+        test_data = st.session_state.generated_test
+        
+        # Header buttons with PDF download functionality - UNIFORM BUTTON ALIGNMENT
+        st.markdown("### Navigation & Downloads")
+        
+        # Create uniform button layout
+        button_col1, button_col2, button_col3, button_col4, button_col5 = st.columns([1, 1, 1, 1, 1])
+        
+        with button_col1:
+            if st.button("← Back to Create", key="back_create", use_container_width=True):
+                st.session_state.current_page = 'create_test'
+                st.rerun()
+        
+        with button_col2:
+            if st.button("🏠 Home", key="home", use_container_width=True):
+                st.session_state.current_page = 'home'
+                st.rerun()
+        
+        with button_col3:
+            if st.button("📄 Questions PDF", key="q_pdf", use_container_width=True):
+                if PDF_AVAILABLE:
+                    with st.spinner("Generating questions PDF..."):
+                        questions_pdf = create_questions_pdf(test_data, "questions.pdf")
+                        if questions_pdf:
+                            with open(questions_pdf, "rb") as pdf_file:
+                                st.download_button(
+                                    label="⬇️ Download Questions",
+                                    data=pdf_file.read(),
+                                    file_name=f"mock_test_questions_{test_data['test_info']['subject']}_grade_{test_data['test_info']['grade']}.pdf",
+                                    mime="application/pdf",
+                                    key="download_q"
+                                )
+                else:
+                    st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        
+        with button_col4:
+            if st.button("📝 Answers PDF", key="a_pdf", use_container_width=True):
+                if PDF_AVAILABLE:
+                    with st.spinner("Generating answers PDF..."):
+                        answers_pdf = create_answers_pdf(test_data, "answers.pdf")
+                        if answers_pdf:
+                            with open(answers_pdf, "rb") as pdf_file:
+                                st.download_button(
+                                    label="⬇️ Download Answers",
+                                    data=pdf_file.read(),
+                                    file_name=f"mock_test_answers_{test_data['test_info']['subject']}_grade_{test_data['test_info']['grade']}.pdf",
+                                    mime="application/pdf",
+                                    key="download_a"
+                                )
+                else:
+                    st.error("PDF generation not available. Please install reportlab: pip install reportlab")
+        
+        with button_col5:
+            if st.button("🔄 Generate New", key="gen_new", use_container_width=True):
+                st.session_state.current_page = 'create_test'
+                st.rerun()
+        
+        # PDF Installation Notice
+        if not PDF_AVAILABLE:
+            st.warning("📋 **PDF functionality requires additional package.** Run: `pip install reportlab` to enable PDF downloads.")
+        
+        # Display the generated test
+        display_generated_test(test_data)
+        
+    else:
+        st.warning("No test generated yet. Please create a test first.")
+        if st.button("← Back to Create Test"):
+            st.session_state.current_page = 'create_test'
+            st.rerun()
+
+# Entry point
+if __name__ == "__main__":
+    pass
