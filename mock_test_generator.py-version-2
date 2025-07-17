@@ -1,0 +1,325 @@
+import streamlit as st
+
+# Import centralized styles - CSS is handled by main.py
+# No CSS imports needed here as styles are centralized
+
+def display_generated_test(test_data):
+    """Display the generated test in a formatted way using centralized CSS styling"""
+    if not test_data:
+        st.error("No test data to display")
+        return
+    
+    test_info = test_data.get('test_info', {})
+    questions = test_data.get('questions', [])
+    show_answers_on_screen = test_info.get('show_answers_on_screen', False)
+    
+    # Test header - Using centralized styling
+    st.markdown(f"""
+    <h1 style="text-align: center; color: #2c3e50; font-size: 2.5rem; margin-bottom: 1rem;">🎓 II Tuition Mock Test Generated</h1>
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #333; font-size: 1.5rem;">{test_info.get('subject', 'Subject')} Mock Test</h2>
+        <p><strong>Board:</strong> {test_info.get('board', 'N/A')} | 
+        <strong>Grade:</strong> {test_info.get('grade', 'N/A')} | 
+        <strong>Topic:</strong> {test_info.get('topic', 'N/A')}</p>
+        <p><strong>Paper Type:</strong> {test_info.get('paper_type', 'N/A')} | 
+        <strong>Total Questions:</strong> {test_info.get('total_questions', len(questions))}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Instructions section - Using centralized CSS classes
+    st.markdown("### 📋 Instructions:")
+    st.markdown("""
+    <div class="instructions-box">
+        <h4 class="instructions-title">📖 Test Guidelines</h4>
+        <p style="color: #2c3e50; margin-bottom: 0;">This test is designed according to your curriculum standards. Read questions carefully and choose the best answers.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    instructions_col1, instructions_col2 = st.columns(2)
+    
+    with instructions_col1:
+        st.markdown("""
+        - Read all questions carefully before answering
+        - For multiple choice questions, select the best option
+        - Take your time to understand each question
+        """)
+    
+    with instructions_col2:
+        st.markdown("""
+        - Show all working for calculation problems
+        - Write clearly for descriptive answers
+        - Manage your time effectively
+        """)
+    
+    st.markdown("---")
+    
+    # Questions display - Using centralized CSS classes
+    for i, question in enumerate(questions, 1):
+        st.markdown(f"""
+        <div class="question-box">
+            <h4 style="color: #667eea; margin-bottom: 0.5rem;">Question {i}</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"**{question.get('question', 'Question text missing')}**")
+        
+        if question.get('type') == 'mcq' and 'options' in question:
+            options = question['options']
+            for option_key, option_text in options.items():
+                st.write(f"**{option_key})** {option_text}")
+            
+            # Only show correct answer if "Show Answers on Screen" was checked
+            if show_answers_on_screen and 'correct_answer' in question and question['correct_answer']:
+                st.success(f"**Correct Answer: {question['correct_answer']}**")
+                # Show explanation if available
+                if 'explanation' in question and question['explanation']:
+                    st.info(f"**Explanation:** {question['explanation']}")
+        
+        elif question.get('type') == 'short_answer':
+            st.write("**[Short Answer Question - Write your detailed answer below]**")
+            # Only show sample answer if "Show Answers on Screen" was checked
+            if show_answers_on_screen and 'sample_answer' in question and question['sample_answer']:
+                st.info(f"**Sample Answer:** {question['sample_answer']}")
+        
+        st.markdown("---")
+
+def show_test_display(navigate_to=None):
+    """
+    Test display page for II Tuitions Mock Test Generator
+    Shows generated test results and provides navigation options
+    Uses centralized exam pad styling from styles/exam_pad_styles.py
+    """
+    
+    # Check if test data exists
+    if 'generated_test' in st.session_state and st.session_state.generated_test:
+        test_data = st.session_state.generated_test
+        
+        # Header with navigation buttons
+        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+        
+        with col1:
+            if st.button("← Back to Create Test", key="back_to_create"):
+                if navigate_to:
+                    navigate_to('create_test')
+                else:
+                    st.session_state.current_page = 'create_test'
+                    st.rerun()
+        
+        with col2:
+            if st.button("🏠 Home", key="home_btn"):
+                if navigate_to:
+                    navigate_to('home')
+                else:
+                    st.session_state.current_page = 'home'
+                    st.rerun()
+        
+        with col3:
+            if st.button("📄 Questions PDF", key="questions_pdf_btn"):
+                # Import PDF functions if available
+                try:
+                    from reportlab.lib.pagesizes import A4 as A4_SIZE
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.lib import colors
+                    
+                    with st.spinner("Generating questions PDF..."):
+                        # Create questions PDF
+                        filename = "questions.pdf"
+                        doc = SimpleDocTemplate(filename, pagesize=A4_SIZE)
+                        styles = getSampleStyleSheet()
+                        story = []
+                        
+                        test_info = test_data.get('test_info', {})
+                        questions = test_data.get('questions', [])
+                        
+                        # Title
+                        title_style = ParagraphStyle(
+                            'Title',
+                            parent=styles['Heading1'],
+                            fontSize=20,
+                            spaceAfter=10,
+                            alignment=1,
+                            textColor=colors.darkblue
+                        )
+                        
+                        story.append(Paragraph("🎓 II Tuition Mock Test", title_style))
+                        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} - {test_info.get('topic', 'Topic')}", styles['Heading2']))
+                        story.append(Paragraph(f"Board: {test_info.get('board', 'N/A')} | Grade: {test_info.get('grade', 'N/A')}", styles['Normal']))
+                        story.append(Spacer(1, 20))
+                        
+                        # Questions
+                        for i, question in enumerate(questions, 1):
+                            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+                            
+                            if question.get('type') == 'mcq' and 'options' in question:
+                                options = question['options']
+                                for option_key, option_text in options.items():
+                                    story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;<b>{option_key})</b> {option_text}", styles['Normal']))
+                            
+                            story.append(Spacer(1, 15))
+                        
+                        doc.build(story)
+                        
+                        # Download button
+                        with open(filename, "rb") as pdf_file:
+                            st.download_button(
+                                label="⬇️ Download Questions PDF",
+                                data=pdf_file.read(),
+                                file_name=f"mock_test_questions_{test_info.get('subject', 'test')}_grade_{test_info.get('grade', 'X')}.pdf",
+                                mime="application/pdf",
+                                key="download_questions"
+                            )
+                        
+                except ImportError:
+                    st.error("📋 PDF generation not available. Please install reportlab: `pip install reportlab`")
+        
+        with col4:
+            if st.button("📝 Answers PDF", key="answers_pdf_btn"):
+                try:
+                    from reportlab.lib.pagesizes import A4
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                    from reportlab.lib.styles import getSampleStyleSheet
+                    from reportlab.lib import colors
+                    
+                    with st.spinner("Generating answers PDF..."):
+                        # Create answers PDF
+                        filename = "answers.pdf"
+                        doc = SimpleDocTemplate(filename, pagesize=A4)
+                        styles = getSampleStyleSheet()
+                        story = []
+                        
+                        test_info = test_data.get('test_info', {})
+                        questions = test_data.get('questions', [])
+                        
+                        # Header
+                        story.append(Paragraph("🎓 II Tuition Mock Test - Answer Key", styles['Heading1']))
+                        story.append(Paragraph(f"{test_info.get('subject', 'Subject')} Answers", styles['Heading2']))
+                        story.append(Spacer(1, 20))
+                        
+                        # Answers
+                        for i, question in enumerate(questions, 1):
+                            story.append(Paragraph(f"<b>Question {i}:</b> {question.get('question', '')}", styles['Normal']))
+                            
+                            if 'correct_answer' in question and question['correct_answer']:
+                                story.append(Paragraph(f"<b>Correct Answer:</b> {question['correct_answer']}", styles['Normal']))
+                            elif 'sample_answer' in question and question['sample_answer']:
+                                story.append(Paragraph(f"<b>Sample Answer:</b> {question['sample_answer']}", styles['Normal']))
+                            
+                            if 'explanation' in question and question['explanation']:
+                                story.append(Paragraph(f"<b>Explanation:</b> {question['explanation']}", styles['Normal']))
+                            
+                            story.append(Spacer(1, 15))
+                        
+                        doc.build(story)
+                        
+                        # Download button
+                        with open(filename, "rb") as pdf_file:
+                            st.download_button(
+                                label="⬇️ Download Answers PDF",
+                                data=pdf_file.read(),
+                                file_name=f"mock_test_answers_{test_info.get('subject', 'test')}_grade_{test_info.get('grade', 'X')}.pdf",
+                                mime="application/pdf",
+                                key="download_answers"
+                            )
+                        
+                except ImportError:
+                    st.error("📋 PDF generation not available. Please install reportlab: `pip install reportlab`")
+        
+        with col5:
+            if st.button("🔄 Generate New", key="generate_new_btn"):
+                if navigate_to:
+                    navigate_to('create_test')
+                else:
+                    st.session_state.current_page = 'create_test'
+                    st.rerun()
+        
+        # PDF Installation Notice
+        try:
+            import reportlab
+        except ImportError:
+            st.warning("📋 **PDF functionality requires additional package.** Run: `pip install reportlab` to enable PDF downloads.")
+        
+        # Display the generated test using centralized styling
+        display_generated_test(test_data)
+        
+    else:
+        # No test data available - Using centralized CSS classes
+        st.markdown("""
+        <div class="validation-box">
+            <div class="validation-title">⚠️ NO TEST DATA FOUND</div>
+            <p style="color: #667eea; text-align: center; margin: 20px 0;">
+                No mock test has been generated yet. Please create a test first to view results here.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Navigation buttons
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("← Back to Create Test", use_container_width=True, key="back_to_create_no_data"):
+                if navigate_to:
+                    navigate_to('create_test')
+                else:
+                    st.session_state.current_page = 'create_test'
+                    st.rerun()
+
+def show_mock_test_generator(navigate_to=None):
+    """
+    Main mock test generator/display function
+    Uses centralized exam pad styling from styles/exam_pad_styles.py
+    All content styling comes from the centralized CSS system
+    """
+    
+    # Header - Using centralized styling
+    st.markdown('<h1 style="color: #2c3e50; text-align: center; font-size: 2.5rem; margin-bottom: 1rem;">📊 Mock Test Results</h1>', unsafe_allow_html=True)
+    
+    # Info section - Using centralized CSS classes
+    st.markdown("""
+    <div class="instructions-box">
+        <div class="instructions-title">🎯 Test Generation Complete!</div>
+        <div style="color: #2c3e50; font-size: 1rem; line-height: 1.6;">
+            This page displays your generated mock test with all questions and answers.
+            You can download PDF versions or generate a new test.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Features section - Using centralized CSS classes
+    st.markdown("""
+    <div class="validation-box">
+        <div class="validation-title">📚 AVAILABLE FEATURES</div>
+        <div style="color: #667eea; font-size: 1rem; line-height: 1.8; text-align: left;">
+            <strong>✅ Current Features:</strong><br>
+            • View generated questions and answers<br>
+            • Download questions as PDF<br>
+            • Download answer key as PDF<br>
+            • Generate new tests with different configurations<br><br>
+            <strong>🚧 Coming Soon:</strong><br>
+            • Test performance analytics<br>
+            • Student progress tracking<br>
+            • Detailed score reports<br>
+            • Question-wise analysis<br>
+            • Timer functionality<br>
+            • Online test taking interface
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Call the main test display function
+    show_test_display(navigate_to)
+
+# Alternative function names for backward compatibility and flexibility
+def show_test_generator(navigate_to=None):
+    """Alternative function name for test generator"""
+    show_mock_test_generator(navigate_to)
+
+def show_results_page(navigate_to=None):
+    """Alternative function name for results page"""
+    show_test_display(navigate_to)
+
+def main():
+    """Main function for standalone testing"""
+    show_mock_test_generator()
+
+if __name__ == "__main__":
+    main()
